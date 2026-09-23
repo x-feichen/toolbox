@@ -68,7 +68,7 @@ pnpm dev:frontend           # http://localhost:3000
 ## 测试
 
 ```bash
-# 后端（42 个测试：安全原语 / 认证 / 工具契约 / Prompt 权限隔离 / 收藏历史）
+# 后端（42 个测试：安全原语 / 认证 / 工具契约 / 提示词权限隔离 / 收藏历史）
 cd backend && uv run pytest
 
 # api-client（4 个测试）+ 前端逻辑（9 个测试）
