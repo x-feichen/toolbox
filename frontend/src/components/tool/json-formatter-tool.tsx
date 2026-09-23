@@ -46,8 +46,8 @@ export function JsonFormatterTool({ tool }: { tool: Tool }) {
   };
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-120px)] flex-col gap-4 p-4 md:p-6">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="flex h-full min-h-[calc(100vh-120px)] flex-col gap-3 p-3 md:p-4">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Input */}
         <div className="flex min-h-[240px] flex-col overflow-hidden rounded-md border border-border bg-panel">
           <div className="border-b border-border px-3 py-2 text-[12px] text-secondary-text">输入</div>
@@ -82,14 +82,17 @@ export function JsonFormatterTool({ tool }: { tool: Tool }) {
         </div>
       </div>
 
-      {/* Error / validation feedback */}
-      <div aria-live="polite" className="min-h-[20px] text-[13px]">
-        {error && <p className="text-error">{error}</p>}
-        {!error && valid === true && <p className="text-success">✓ JSON 有效</p>}
-      </div>
+      {/* Error / validation feedback — only occupies space when there is
+          something to say, keeping the divider close to the panels */}
+      {(error || valid === true) && (
+        <div aria-live="polite" className="text-[13px]">
+          {error && <p className="text-error">{error}</p>}
+          {!error && valid === true && <p className="text-success">✓ JSON 有效</p>}
+        </div>
+      )}
 
       {/* Actions */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <Button variant="primary" onClick={() => apply("format")}>
           格式化
         </Button>
