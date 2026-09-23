@@ -1,0 +1,15 @@
+# Backend FastAPI source
+backend/
+docs/
+deploy/
+node_modules/
+**/node_modules/
+frontend/.next/
+frontend/.next-standalone/
+**/.next/
+backend/.venv/
+**/__pycache__/
+**/.pytest_cache/
+.git/
+.env
+*.log
