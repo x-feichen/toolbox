@@ -92,19 +92,27 @@ function ToolsTree({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () => vo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool?.category, activeSlug]);
 
+  // Re-expanding the tree resets all child accordions to collapsed state.
+  const toggleTools = () => {
+    if (toolsOpen) {
+      setToolsOpen(false);
+    } else {
+      setOpenCats(new Set());
+      setToolsOpen(true);
+    }
+  };
+
+  // Accordion: expanding one category collapses the others.
   const toggleCat = (category: string) => {
-    setOpenCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
-      return next;
-    });
+    setOpenCats((prev) =>
+      prev.has(category) ? new Set() : new Set([category]),
+    );
   };
 
   return (
     <div className="flex flex-col gap-0.5">
       <button
-        onClick={() => setToolsOpen((v) => !v)}
+        onClick={toggleTools}
         aria-expanded={toolsOpen}
         className={cn(
           "flex h-8 items-center gap-2 rounded-sm px-2 text-[13px]",
