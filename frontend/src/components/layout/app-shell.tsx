@@ -226,7 +226,7 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
 
       <div className="mt-auto border-t border-border p-3">
         {isLoading ? null : user ? (
-          <div className="flex items-center gap-2">
+          <div className="flex h-9 items-center gap-2">
             <span className="flex size-7 items-center justify-center rounded-full bg-accent/15 text-[12px] font-medium text-accent">
               {(user.display_name ?? user.email).slice(0, 1).toUpperCase()}
             </span>
@@ -249,7 +249,7 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
         ) : (
           <Link
             href="/login"
-            className="flex h-8 items-center justify-center rounded-sm bg-accent text-[13px] font-medium text-accent-fg hover:bg-accent-hover"
+            className="flex h-9 items-center justify-center rounded-sm bg-accent text-[13px] font-medium text-accent-fg hover:bg-accent-hover"
           >
             登录
           </Link>
