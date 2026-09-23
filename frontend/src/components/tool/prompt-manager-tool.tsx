@@ -309,7 +309,7 @@ export function PromptManagerTool() {
       {/* List */}
       <aside
         className={cn(
-          "w-full shrink-0 border-r border-border bg-secondary md:flex md:h-full md:w-[300px]",
+          "w-full shrink-0 border-r border-border bg-secondary md:flex md:h-full md:w-[232px]",
           mobileView === "editor" && "hidden",
         )}
       >
