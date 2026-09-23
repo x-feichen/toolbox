@@ -46,7 +46,8 @@ export function JsonFormatterTool({ tool }: { tool: Tool }) {
   };
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-120px)] flex-col gap-3 p-3 md:p-4">
+    <div className="flex h-full min-h-[calc(100vh-120px)] flex-col gap-3 p-3 md:px-4 md:pt-4">
+      {/* md 下底部沿用 p-3 的 12px，使分割线与侧边栏账户区分割线对齐 */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Input */}
         <div className="flex min-h-[240px] flex-col overflow-hidden rounded-md border border-border bg-panel">
