@@ -29,6 +29,7 @@ export function CsvJsonTool() {
   };
 
   const switchDirection = (next: Direction) => {
+    if (next === direction) return; // already in this direction — keep the input
     setDirection(next);
     setInput("");
     setOutput("");
