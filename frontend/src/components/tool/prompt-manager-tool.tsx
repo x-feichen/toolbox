@@ -21,10 +21,9 @@ export function PromptManagerTool() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ title: string; content: string; category: string }>({
+  const [draft, setDraft] = useState<{ title: string; content: string }>({
     title: "",
     content: "",
-    category: "",
   });
   const [fillValues, setFillValues] = useState<Record<string, string>>({});
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
@@ -54,7 +53,6 @@ export function PromptManagerTool() {
       setDraft({
         title: selected.title,
         content: selected.content,
-        category: selected.category,
       });
     }
     setFillValues({});
@@ -100,7 +98,6 @@ export function PromptManagerTool() {
       patch: {
         title: draft.title.trim() || "未命名提示词",
         content: draft.content,
-        category: draft.category.trim(),
       },
     });
   };
@@ -168,11 +165,6 @@ export function PromptManagerTool() {
                       <Star className="size-3 shrink-0 text-warning" fill="currentColor" aria-hidden />
                     )}
                   </span>
-                  {prompt.category && (
-                    <span className="mt-0.5 block truncate text-[12px] text-muted-text">
-                      {prompt.category}
-                    </span>
-                  )}
                 </button>
               </li>
             ))}
@@ -253,13 +245,7 @@ export function PromptManagerTool() {
       </div>
 
       {/* Scrollable editor body — the action bar below never moves */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-        <Input
-          value={draft.category}
-          onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value }))}
-          placeholder="分类（可选，如：写作 / 编码）"
-          aria-label="分类"
-        />
+      <div className="flex min-h-0 flex-1 flex-col p-4">
         <textarea
           value={draft.content}
           onChange={(event) => setDraft((d) => ({ ...d, content: event.target.value }))}
@@ -292,7 +278,7 @@ export function PromptManagerTool() {
             variant="ghost"
             onClick={() =>
               selected &&
-              setDraft({ title: selected.title, content: selected.content, category: selected.category })
+              setDraft({ title: selected.title, content: selected.content })
             }
           >
             放弃更改
