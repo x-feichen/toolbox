@@ -53,6 +53,13 @@ export function PromptManagerTool() {
 
   const selected = prompts.find((p) => p.id === selectedId) ?? null;
 
+  // Select the first prompt once the list loads (or after filtering).
+  useEffect(() => {
+    if (selectedId && prompts.some((p) => p.id === selectedId)) return;
+    setSelectedId(visible[0]?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompts, folder]);
+
   useEffect(() => {
     if (selected) {
       setDraft({

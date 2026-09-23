@@ -6,14 +6,17 @@ import { api } from "@/lib/api";
 import { cn, categoryLabel } from "@/lib/utils";
 import type { Tool } from "@toolbox/api-client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import {
   BookMarked,
+  ChevronDown,
+  ChevronRight,
   Code2,
   Database,
   Home,
   Image as ImageIcon,
+  Lock,
   Search,
   Shapes,
   Sparkles,
@@ -36,6 +39,9 @@ export function ToolCategoryIcon({ category, className }: { category: string; cl
   const Icon = CATEGORY_ICONS[category] ?? Shapes;
   return <Icon className={className} />;
 }
+
+/** 固定分类清单（产品确定，见设计文档信息架构）。 */
+const FIXED_CATEGORIES = ["developer", "text", "data", "image", "ai", "other"] as const;
 
 function NavLink({
   href,
@@ -64,13 +70,122 @@ function NavLink({
   );
 }
 
+/**
+ * 侧边栏「工具」可折叠树：工具 → 固定分类 → 分类下的工具。
+ * 选中工具的分类自动展开；空分类显示占位说明。
+ */
+function ToolsTree({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeSlug = searchParams.get("slug") ?? "";
+  const activeTool = tools.find((tool) => tool.slug === activeSlug);
+
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set());
+
+  // Auto-expand the category of the currently selected tool.
+  useEffect(() => {
+    if (activeTool && !openCats.has(activeTool.category)) {
+      setOpenCats((prev) => new Set(prev).add(activeTool.category));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool?.category, activeSlug]);
+
+  const toggleCat = (category: string) => {
+    setOpenCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        onClick={() => setToolsOpen((v) => !v)}
+        aria-expanded={toolsOpen}
+        className={cn(
+          "flex h-8 items-center gap-2 rounded-sm px-2 text-[13px]",
+          pathname === "/tools"
+            ? "font-medium text-foreground"
+            : "text-secondary-text hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <Wrench className="size-4" />
+        工具
+        <ChevronDown
+          className={cn(
+            "ml-auto size-3.5 text-muted-text transition-transform duration-150",
+            !toolsOpen && "-rotate-90",
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {toolsOpen &&
+        FIXED_CATEGORIES.map((category) => {
+          const categoryTools = tools.filter((tool) => tool.category === category);
+          const isOpen = openCats.has(category);
+          return (
+            <div key={category}>
+              <button
+                onClick={() => toggleCat(category)}
+                aria-expanded={isOpen}
+                className="flex h-8 w-full items-center gap-2 rounded-sm py-0 pl-6 pr-2 text-[13px] text-secondary-text hover:bg-muted hover:text-foreground"
+              >
+                <ToolCategoryIcon category={category} className="size-3.5" />
+                <span className="truncate">{categoryLabel(category)}</span>
+                {categoryTools.length > 0 && (
+                  <ChevronRight
+                    className={cn(
+                      "ml-auto size-3 text-muted-text transition-transform duration-150",
+                      isOpen && "rotate-90",
+                    )}
+                    aria-hidden
+                  />
+                )}
+              </button>
+
+              {isOpen &&
+                (categoryTools.length > 0 ? (
+                  categoryTools.map((tool) => {
+                    const href = `/tools?category=${tool.category}&slug=${tool.slug}`;
+                    const active = tool.slug === activeSlug && pathname === "/tools";
+                    return (
+                      <Link
+                        key={tool.slug}
+                        href={href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex h-8 items-center gap-2 rounded-sm py-0 pl-10 pr-2 text-[13px]",
+                          active
+                            ? "bg-muted font-medium text-foreground"
+                            : "text-secondary-text hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{tool.name}</span>
+                        {tool.requires_auth && (
+                          <Lock className="size-3 shrink-0 text-muted-text" aria-label="需要登录" />
+                        )}
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <p className="py-1 pl-10 pr-2 text-[12px] text-muted-text">暂无工具</p>
+                ))}
+            </div>
+          );
+        })}
+    </div>
+  );
+}
+
 function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const { open: openPalette } = useCommandPalette();
-
-  const categories = [...new Set(tools.map((tool) => tool.category))];
 
   const isActive = (href: string) => pathname === href;
 
@@ -94,14 +209,11 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
         </button>
       </div>
 
-      <nav className="flex flex-col gap-0.5 px-3" aria-label="主导航">
+      <nav className="flex flex-col gap-0.5 overflow-y-auto px-3" aria-label="主导航">
         <NavLink href="/" icon={<Home className="size-4" />} label="首页" active={isActive("/")} />
-        <NavLink
-          href="/tools"
-          icon={<Wrench className="size-4" />}
-          label="工具"
-          active={isActive("/tools")}
-        />
+        <Suspense fallback={null}>
+          <ToolsTree tools={tools} onNavigate={onNavigate} />
+        </Suspense>
         <NavLink
           href="/favorites"
           icon={<BookMarked className="size-4" />}
@@ -109,24 +221,6 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
           active={isActive("/favorites")}
         />
       </nav>
-
-      <div className="mt-6 px-3">
-        <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-text">
-          分类
-        </p>
-        <nav className="flex flex-col gap-0.5" aria-label="工具分类">
-          {categories.map((category) => (
-            <Link
-              key={category}
-              href={`/tools?category=${category}`}
-              className="flex h-8 items-center gap-2 rounded-sm px-2 text-[13px] text-secondary-text hover:bg-muted hover:text-foreground"
-            >
-              <ToolCategoryIcon category={category} className="size-4" />
-              {categoryLabel(category)}
-            </Link>
-          ))}
-        </nav>
-      </div>
 
       <div className="mt-auto border-t border-border p-3">
         {isLoading ? null : user ? (
