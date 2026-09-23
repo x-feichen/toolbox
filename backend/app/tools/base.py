@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 AccessType = Literal["public", "authenticated"]
 ExecutionMode = Literal["client", "server", "hybrid"]
-UIType = Literal["form", "editor", "upload", "viewer", "custom"]
+UIType = Literal["form", "editor", "upload", "viewer", "custom", "split", "table"]
 ToolStatus = Literal["draft", "beta", "stable", "deprecated"]
 ToolCategory = Literal["developer", "text", "data", "image", "ai", "other"]
 

@@ -84,4 +84,18 @@ registry = ToolRegistry()
 
 def load_tools() -> None:
     """Import all tool packages; each registers itself into the registry."""
-    from app.tools import json_formatter, prompt_manager  # noqa: F401
+    from app.tools import (
+        base64_tool,
+        case_converter,
+        csv_json,
+        duplicate_lines,
+        image_compressor,
+        json_formatter,
+        jwt_decoder,
+        prompt_manager,
+        text_diff,
+        timestamp_converter,
+        url_encoder,
+        uuid_generator,
+        word_counter,
+    )  # noqa: F401  (each package registers itself)

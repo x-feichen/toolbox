@@ -12,6 +12,19 @@ async def test_list_tools_returns_registered_manifests(client):
     slugs = {t["slug"] for t in tools}
     assert "json-formatter" in slugs
 
+    # First-phase client tools from the implementation plan are discoverable
+    expected = {
+        "json-formatter", "uuid-generator", "base64-tool", "url-encoder",
+        "timestamp-converter", "word-counter", "case-converter", "duplicate-lines",
+        "jwt-decoder", "text-diff", "csv-json", "image-compressor", "prompt-manager",
+    }
+    assert expected <= slugs
+    # All first-phase client tools run in the browser and need no login
+    for slug in expected - {"prompt-manager"}:
+        tool = next(t for t in tools if t["slug"] == slug)
+        assert tool["execution"] == "client"
+        assert tool["access"] == "public"
+
     formatter = next(t for t in tools if t["slug"] == "json-formatter")
     assert formatter["access"] == "public"
     assert formatter["execution"] == "client"
