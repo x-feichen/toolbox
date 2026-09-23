@@ -7,6 +7,7 @@ import { cn, categoryLabel } from "@/lib/utils";
 import type { Tool } from "@toolbox/api-client";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
 import {
   BookMarked,
@@ -186,6 +187,7 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const { open: openPalette } = useCommandPalette();
+  const queryClient = useQueryClient();
 
   const isActive = (href: string) => pathname === href;
 
@@ -235,7 +237,9 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
               onClick={async () => {
                 await api().auth.logout();
                 router.push("/");
-                router.refresh();
+                // Invalidate everything: /auth/me refetches into the
+                // anonymous state, personal-data caches are dropped.
+                await queryClient.invalidateQueries();
               }}
               className="text-[12px] text-muted-text hover:text-foreground"
             >

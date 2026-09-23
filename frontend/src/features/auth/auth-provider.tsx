@@ -18,14 +18,17 @@ const AuthContext = createContext<AuthState>({ user: null, isLoading: true });
  * re-verifies every protected request.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { data, isLoading } = useQuery({
+  // A failed /auth/me (401 on logout/expiry) must map to "logged out";
+  // TanStack keeps stale data after a failed refetch, so treat error
+  // states as anonymous explicitly.
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => api().auth.me(),
     retry: false,
     staleTime: 60_000,
   });
 
-  const user = data ?? null;
+  const user = isError ? null : (data ?? null);
   return <AuthContext.Provider value={{ user, isLoading }}>{children}</AuthContext.Provider>;
 }
 

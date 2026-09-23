@@ -1,16 +1,16 @@
 "use client";
 
-import { useAuth } from "@/features/auth/auth-provider";
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui/primitives";
 import { ApiError } from "@toolbox/api-client";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { } = useAuth();
+  const queryClient = useQueryClient();
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,8 +28,10 @@ export default function RegisterPage() {
         password,
         display_name: displayName || undefined,
       });
+      // Auto-login after registration; refresh the session cache so the
+      // whole UI reflects the logged-in state immediately.
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       router.replace("/");
-      router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "注册失败，请重试");
     } finally {

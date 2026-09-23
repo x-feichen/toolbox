@@ -1,9 +1,9 @@
 "use client";
 
-import { useAuth } from "@/features/auth/auth-provider";
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui/primitives";
 import { ApiError } from "@toolbox/api-client";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -12,7 +12,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
-  const { } = useAuth();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,9 +25,11 @@ function LoginForm() {
     setLoading(true);
     try {
       await api().auth.login({ email, password });
+      // Refresh the session cache so every consumer (sidebar, guards,
+      // favorites) reflects the logged-in state immediately.
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       // Never lose the user's context after login (spec §36).
       router.replace(next);
-      router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "登录失败，请重试");
     } finally {
