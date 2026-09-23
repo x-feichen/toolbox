@@ -124,7 +124,7 @@ export function PromptManagerTool() {
   const fullPrompt = selected ? fillPromptVariables(selected.content, fillValues) : "";
 
   const listPane = (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <div className="shrink-0 border-b border-border p-3">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-text" aria-hidden />
