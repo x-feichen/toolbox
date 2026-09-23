@@ -8,6 +8,7 @@ violations surface as NOT_FOUND, never FORBIDDEN (no existence leak).
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +28,7 @@ async def list_prompts(
     user_id: uuid.UUID,
     q: str | None = None,
     category: str | None = None,
-    favorite_only: bool = False,
+    pinned_only: bool = False,
 ) -> list[Prompt]:
     stmt = select(Prompt).where(Prompt.user_id == user_id)
     if q:
@@ -35,9 +36,15 @@ async def list_prompts(
         stmt = stmt.where(Prompt.title.ilike(pattern) | Prompt.content.ilike(pattern))
     if category:
         stmt = stmt.where(Prompt.category == category)
-    if favorite_only:
-        stmt = stmt.where(Prompt.is_favorite.is_(True))
-    stmt = stmt.order_by(Prompt.updated_at.desc())
+    if pinned_only:
+        stmt = stmt.where(Prompt.pinned_at.is_not(None))
+    # Pinned prompts first (most recently pinned on top), then the rest by
+    # creation time, newest first.
+    stmt = stmt.order_by(
+        Prompt.pinned_at.is_(None).asc(),
+        Prompt.pinned_at.desc(),
+        Prompt.created_at.desc(),
+    )
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -90,6 +97,12 @@ async def update_prompt(
     updates: dict,
 ) -> Prompt:
     prompt = await get_prompt(db, user_id=user_id, prompt_id=prompt_id)
+
+    # is_pinned is a derived flag: true pins now, false unpins.
+    is_pinned = updates.pop("is_pinned", None)
+    if is_pinned is not None:
+        prompt.pinned_at = datetime.now(timezone.utc) if is_pinned else None
+
     for field, value in updates.items():
         setattr(prompt, field, value)
     await db.commit()

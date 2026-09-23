@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin
@@ -23,4 +24,9 @@ class Prompt(TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, default="", nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     category: Mapped[str] = mapped_column(String(50), default="", nullable=False)
-    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Pinned prompts sort first (by pin time); NULL means not pinned.
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def is_pinned(self) -> bool:
+        return self.pinned_at is not None

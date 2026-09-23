@@ -20,7 +20,7 @@ class PromptUpdateIn(BaseModel):
     content: str | None = Field(default=None, max_length=100_000)
     description: str | None = Field(default=None, max_length=2_000)
     category: str | None = Field(default=None, max_length=50)
-    is_favorite: bool | None = None
+    is_pinned: bool | None = None
 
 
 class PromptOut(BaseModel):
@@ -31,6 +31,7 @@ class PromptOut(BaseModel):
     content: str
     description: str
     category: str
-    is_favorite: bool
+    is_pinned: bool
+    pinned_at: datetime | None
     created_at: datetime
     updated_at: datetime

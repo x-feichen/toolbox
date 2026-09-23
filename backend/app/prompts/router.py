@@ -20,7 +20,7 @@ router = APIRouter(prefix="/prompts", tags=["prompts"])
 async def list_prompts(
     q: str | None = Query(default=None, max_length=100),
     category: str | None = Query(default=None, max_length=50),
-    favorite: bool | None = Query(default=None),
+    pinned: bool | None = Query(default=None),
     user: User = Depends(require_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[PromptOut]:
@@ -29,7 +29,7 @@ async def list_prompts(
         user_id=user.id,
         q=q,
         category=category,
-        favorite_only=bool(favorite) if favorite is not None else False,
+        pinned_only=bool(pinned) if pinned is not None else False,
     )
     return [PromptOut.model_validate(p) for p in prompts]
 

@@ -44,7 +44,8 @@ export interface Prompt {
   content: string;
   description: string;
   category: string;
-  is_favorite: boolean;
+  is_pinned: boolean;
+  pinned_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,7 +62,7 @@ export interface PromptPatch {
   content?: string;
   description?: string;
   category?: string;
-  is_favorite?: boolean;
+  is_pinned?: boolean;
 }
 
 export interface Favorite {

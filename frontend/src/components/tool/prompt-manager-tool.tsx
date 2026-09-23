@@ -8,23 +8,27 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Input, Spinner } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { ClipboardCopy, Plus, Search, Star, Trash2 } from "lucide-react";
+import { ArrowUpToLine, ClipboardCopy, Pin, Plus, Search, Trash2 } from "lucide-react";
+
+/** Draft tracks which prompt it belongs to, so switching selection (create /
+ * delete / navigate) always resets the editor instead of leaking old content. */
+interface Draft {
+  id: string;
+  title: string;
+  content: string;
+}
 
 /**
  * 提示词工具 — authenticated + server + custom workspace:
- * left column = search + full list + [新建] pinned at the bottom;
- * right column = editor with a fixed bottom action bar. `{{var}}`
- * placeholders are detected, fillable, and copyable as a complete prompt.
+ * left = search + list + [新建] pinned at the bottom; right = editor with a
+ * fixed action bar. Pinned prompts come first (server-side ordering).
  */
 export function PromptManagerTool() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ title: string; content: string }>({
-    title: "",
-    content: "",
-  });
+  const [draft, setDraft] = useState<Draft>({ id: "", title: "", content: "" });
   const [fillValues, setFillValues] = useState<Record<string, string>>({});
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
 
@@ -48,15 +52,18 @@ export function PromptManagerTool() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompts, search]);
 
+  // Reset the draft whenever the editor target actually changes (different
+  // prompt id, or the prompt's saved data arrives after a refetch).
   useEffect(() => {
-    if (selected) {
-      setDraft({
-        title: selected.title,
-        content: selected.content,
-      });
+    if (!selected) {
+      setFillValues({});
+      return;
     }
+    if (draft.id === selected.id) return; // user is editing; do not clobber
+    setDraft({ id: selected.id, title: selected.title, content: selected.content });
     setFillValues({});
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, selected?.title, selected?.content]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["prompts"] });
@@ -67,6 +74,7 @@ export function PromptManagerTool() {
     onSuccess: (prompt) => {
       invalidate();
       setSelectedId(prompt.id);
+      // Draft resets the moment the new prompt appears in the list.
       setMobileView("editor");
       showToast("已创建");
     },
@@ -75,8 +83,10 @@ export function PromptManagerTool() {
   const updateMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Prompt> }) =>
       api().prompts.update(id, patch),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       invalidate();
+      // Keep the editor in sync with saved content immediately.
+      setDraft({ id: updated.id, title: updated.title, content: updated.content });
       showToast("已保存");
     },
   });
@@ -92,7 +102,7 @@ export function PromptManagerTool() {
   });
 
   const save = () => {
-    if (!selected) return;
+    if (!selected || draft.id !== selected.id) return;
     updateMutation.mutate({
       id: selected.id,
       patch: {
@@ -102,8 +112,8 @@ export function PromptManagerTool() {
     });
   };
 
-  const toggleFavorite = (prompt: Prompt) =>
-    updateMutation.mutate({ id: prompt.id, patch: { is_favorite: !prompt.is_favorite } });
+  const togglePin = (prompt: Prompt) =>
+    updateMutation.mutate({ id: prompt.id, patch: { is_pinned: !prompt.is_pinned } });
 
   // Variables come from the saved content (what the user would copy/share).
   const variables = useMemo(
@@ -112,12 +122,6 @@ export function PromptManagerTool() {
   );
 
   const fullPrompt = selected ? fillPromptVariables(selected.content, fillValues) : "";
-
-  const copyFullPrompt = async () => {
-    if (!selected) return;
-    await navigator.clipboard.writeText(fullPrompt);
-    showToast("已复制完整提示词");
-  };
 
   const listPane = (
     <div className="flex h-full min-h-0 flex-col">
@@ -153,17 +157,19 @@ export function PromptManagerTool() {
                     setMobileView("editor");
                   }}
                   className={cn(
-                    "w-full rounded-sm px-3 py-2 text-left",
+                    "flex w-full items-center gap-1.5 rounded-sm px-3 py-2 text-left",
                     selectedId === prompt.id ? "bg-muted" : "hover:bg-muted/60",
                   )}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-                      {prompt.title}
-                    </span>
-                    {prompt.is_favorite && (
-                      <Star className="size-3 shrink-0 text-warning" fill="currentColor" aria-hidden />
-                    )}
+                  {prompt.is_pinned && (
+                    <Pin
+                      className="size-3 shrink-0 text-accent"
+                      fill="currentColor"
+                      aria-label="已置顶"
+                    />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+                    {prompt.title}
                   </span>
                 </button>
               </li>
@@ -221,14 +227,15 @@ export function PromptManagerTool() {
         />
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
-            aria-label={selected.is_favorite ? "取消收藏" : "收藏"}
-            onClick={() => toggleFavorite(selected)}
+            aria-label={selected.is_pinned ? "取消置顶" : "置顶"}
+            title={selected.is_pinned ? "取消置顶" : "置顶"}
+            onClick={() => togglePin(selected)}
             className={cn(
               "inline-flex size-8 items-center justify-center rounded-sm hover:bg-muted",
-              selected.is_favorite ? "text-warning" : "text-muted-text",
+              selected.is_pinned ? "text-accent" : "text-muted-text",
             )}
           >
-            <Star className="size-4" fill={selected.is_favorite ? "currentColor" : "none"} />
+            <ArrowUpToLine className="size-4" />
           </button>
           <button
             aria-label="删除提示词"
@@ -263,7 +270,7 @@ export function PromptManagerTool() {
         <Button
           onClick={async () => {
             if (!selected) return;
-            await navigator.clipboard.writeText(fullPrompt);
+            await navigator.clipboard.writeText(fillPromptVariables(selected.content, fillValues));
             showToast("已复制完整提示词");
           }}
         >
@@ -277,8 +284,7 @@ export function PromptManagerTool() {
           <Button
             variant="ghost"
             onClick={() =>
-              selected &&
-              setDraft({ title: selected.title, content: selected.content })
+              selected && setDraft({ id: selected.id, title: selected.title, content: selected.content })
             }
           >
             放弃更改
