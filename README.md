@@ -86,6 +86,23 @@ docker compose up -d --build
 - 公网部署：在 `.env` 中设置 `NEXT_PUBLIC_API_URL=https://你的域名`（前端 build arg）与 `CORS_ORIGINS`，再重新 `up -d --build`。
 - 基础镜像与依赖源：默认配置了国内镜像（PyPI 清华源 / npmmirror），海外环境可删除 Dockerfile 中对应行。
 
+### 开发模式（源码热更新）
+
+改代码即时生效，无需重建镜像：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+差异（生产默认不受影响）：
+
+| 服务 | 变化 |
+| --- | --- |
+| backend | 挂载 `backend/app` + `alembic`，uvicorn `--reload`（含轮询监听，Windows/macOS 挂载可靠） |
+| frontend | 挂载 `frontend/src` + `packages/api-client/src`，运行 `next dev`（HMR） |
+
+入口与生产一致：`http://localhost`。**依赖变更**（`pyproject.toml` / `package.json`）仍需重建：把上面的命令加上 `--build`。切回生产：`docker compose -f docker-compose.yml -f docker-compose.dev.yml down` 后重新 `docker compose up -d`。
+
 ## 测试
 
 ```bash
