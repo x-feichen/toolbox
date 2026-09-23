@@ -10,7 +10,7 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json frontend/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 COPY packages/api-client packages/api-client
 COPY frontend frontend
@@ -25,12 +25,17 @@ FROM node:24-slim
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=build /app/frontend/.next ./.next
-COPY --from=build /app/frontend/node_modules ./node_modules
+# Keep the workspace layout (frontend/node_modules symlinks point into the
+# root node_modules), then run from frontend/ as pnpm does on the host.
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/frontend/node_modules ./frontend/node_modules
+COPY --from=build /app/frontend/.next ./frontend/.next
 COPY --from=build /app/packages ./packages
-COPY --from=build /app/frontend/package.json ./
-COPY --from=build /app/frontend/next.config.ts ./
+COPY --from=build /app/frontend/package.json ./frontend/package.json
+COPY --from=build /app/frontend/next.config.ts ./frontend/next.config.ts
 
 EXPOSE 3000
+
+WORKDIR /app/frontend
 
 CMD ["./node_modules/.bin/next", "start", "--port", "3000"]

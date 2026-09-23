@@ -71,7 +71,7 @@ pnpm dev:frontend           # http://localhost:3000
 
 ```bash
 cp .env.example .env    # 先修改 SESSION_SECRET 等敏感配置
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
 访问 `http://localhost`（Nginx 统一入口，浏览器同源，无需额外 CORS）：
@@ -81,7 +81,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 | `/` | Next.js 前端 |
 | `/api/v1/*`、`/openapi.json` | FastAPI 后端（启动时自动执行 Alembic 迁移） |
 
-- PostgreSQL 默认**不暴露宿主端口**（仅容器网络内访问），维护时取消 compose 中 ports 注释。
+- PostgreSQL 端口仅绑定 `127.0.0.1:5432`（IDE 工具链可连，公网不可达）。
+- 后端本地开发：`docker compose up -d postgres` 只起数据库，再在宿主运行 uvicorn。
 - 公网部署：在 `.env` 中设置 `NEXT_PUBLIC_API_URL=https://你的域名`（前端 build arg）与 `CORS_ORIGINS`，再重新 `up -d --build`。
 - 基础镜像与依赖源：默认配置了国内镜像（PyPI 清华源 / npmmirror），海外环境可删除 Dockerfile 中对应行。
 

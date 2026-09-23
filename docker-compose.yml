@@ -1,3 +1,15 @@
+# ToolBox full-stack deployment.
+#
+#   cp .env.example .env    # adjust secrets first (SESSION_SECRET!)
+#   docker compose up -d --build
+#
+# Entry point: http://localhost (nginx) — single origin for the browser:
+#   /          → Next.js frontend
+#   /api/v1/*  → FastAPI backend
+#
+# For backend-only development against a local IDE workflow, start just the
+# database: `docker compose up -d postgres` (port 5432 is bound to localhost).
+
 services:
   postgres:
     image: postgres:16
@@ -6,8 +18,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-toolbox}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toolbox}
       POSTGRES_DB: ${POSTGRES_DB:-toolbox}
+    # localhost-only binding: the IDE toolchain can connect, the internet cannot.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +28,60 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: toolbox-backend
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-toolbox}:${POSTGRES_PASSWORD:-toolbox}@postgres:5432/${POSTGRES_DB:-toolbox}
+      # Change this in .env! Used for session cookie security decisions.
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      # Same-origin through nginx; add your public domain(s) here if any.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # Public address users' browsers will call; nginx proxies /api/*.
+        # Set to your domain in production, e.g. https://toolbox.example.com
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost}
+    container_name: toolbox-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: toolbox-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:

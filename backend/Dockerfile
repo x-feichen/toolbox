@@ -19,4 +19,6 @@ COPY app ./app
 EXPOSE 8000
 
 # Apply migrations before serving; DATABASE_URL comes from the environment.
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# --no-sync: the venv is already prepared at build time (uv sync --frozen
+# --no-dev); re-syncing on every boot would reinstall dev dependencies.
+CMD ["sh", "-c", "uv run --no-sync alembic upgrade head && uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8000"]
