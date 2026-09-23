@@ -65,21 +65,27 @@
   --radius-lg: 12px;
 }
 
-body {
-  background: var(--bg-page);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 22px;
-  -webkit-font-smoothing: antialiased;
-}
+/* Base styles live in @layer base so Tailwind utilities (which are emitted
+   into @layer utilities, later in the cascade) can override them —
+   e.g. `outline-none` on the ⌘K search field. Unlayered rules would win
+   over every layered rule regardless of specificity. */
+@layer base {
+  body {
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+  }
 
-/* Focus ring: subtle, indigo — never a glow */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
+  /* Focus ring: subtle, indigo — never a glow. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
 
-::selection {
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+  }
 }

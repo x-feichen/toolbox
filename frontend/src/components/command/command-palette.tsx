@@ -113,10 +113,10 @@ function PaletteOverlay({ onClose }: { onClose: () => void }) {
       <div
         role="dialog"
         aria-label="搜索工具"
-        className="mx-auto mt-[12vh] w-[min(560px,92vw)] overflow-hidden rounded-lg border border-border bg-panel shadow-lg"
+        className="mx-auto mt-[max(5rem,12vh)] flex w-[min(560px,92vw)] max-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-border px-4">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4">
           <Search className="size-4 text-muted-text" aria-hidden />
           <input
             ref={inputRef}
@@ -129,7 +129,7 @@ function PaletteOverlay({ onClose }: { onClose: () => void }) {
           <kbd className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-text">Esc</kbd>
         </div>
 
-        <div className="max-h-[360px] overflow-y-auto p-2">
+        <div className="min-h-0 max-h-[360px] flex-1 overflow-y-auto p-2">
           {isLoading ? (
             <p className="px-3 py-6 text-center text-[13px] text-muted-text">Loading...</p>
           ) : results.length === 0 ? (
@@ -163,7 +163,7 @@ function PaletteOverlay({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[11px] text-muted-text">
+        <div className="flex shrink-0 items-center gap-3 border-t border-border px-4 py-2 text-[11px] text-muted-text">
           <span>↑↓ Navigate</span>
           <span>↵ Open</span>
           <span>Esc 关闭</span>

@@ -32,6 +32,8 @@ services:
     # Use the build stage as the dev image: it carries the full frontend
     # source tree plus tsconfig/postcss/next.config (which the slim runtime
     # stage intentionally omits), so `next dev` can compile on the fly.
+    # A distinct image name keeps it from clobbering the production image.
+    image: toolbox-frontend-dev
     build:
       context: .
       dockerfile: frontend/Dockerfile
