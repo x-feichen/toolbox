@@ -40,6 +40,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-toolbox}:${POSTGRES_PASSWORD:-toolbox}@postgres:5432/${POSTGRES_DB:-toolbox}
       # Change this in .env! Used for session cookie security decisions.
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      # Comma-separated emails that receive the admin role on registration.
+      # e.g. ADMIN_EMAILS=ops@example.com,cto@example.com
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # Same-origin requests are allowed automatically (Origin is compared
       # with Host), so list extra origins here only for split deployments.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}

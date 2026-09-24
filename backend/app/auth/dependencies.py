@@ -37,3 +37,14 @@ async def require_current_user(
             ErrorCode.AUTH_REQUIRED, "请登录后使用该功能", status_code=401
         )
     return user
+
+
+async def require_admin(
+    user: User = Depends(require_current_user),
+) -> User:
+    """Admin-only guard (two roles: user | admin)."""
+    if user.role != "admin":
+        raise AppError(
+            ErrorCode.FORBIDDEN, "需要管理员权限", status_code=403
+        )
+    return user

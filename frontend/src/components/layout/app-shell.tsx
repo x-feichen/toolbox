@@ -19,9 +19,11 @@ import {
   Image as ImageIcon,
   Lock,
   Search,
+  Settings,
   Shapes,
   Sparkles,
   Type,
+  Users,
   Wrench,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme";
@@ -230,6 +232,24 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
           label="收藏"
           active={isActive("/favorites")}
         />
+        {user && (
+          <>
+            <NavLink
+              href="/settings"
+              icon={<Settings className="size-4" />}
+              label="设置"
+              active={pathname.startsWith("/settings")}
+            />
+            {user.role === "admin" && (
+              <NavLink
+                href="/admin/users"
+                icon={<Users className="size-4" />}
+                label="用户管理"
+                active={pathname.startsWith("/admin")}
+              />
+            )}
+          </>
+        )}
       </nav>
 
       <div className="mt-auto border-t border-border p-3">

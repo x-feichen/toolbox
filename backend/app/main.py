@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app import models  # noqa: F401  (registers all ORM models on Base.metadata)
+from app.admin.router import router as admin_router
 from app.auth import service as auth_service
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
@@ -103,7 +104,15 @@ def create_app() -> FastAPI:
     _install_csrf_protection(app)
     install_error_handlers(app)
 
-    for router in (auth_router, users_router, tools_router, prompts_router, favorites_router, history_router):
+    for router in (
+        auth_router,
+        users_router,
+        admin_router,
+        tools_router,
+        prompts_router,
+        favorites_router,
+        history_router,
+    ):
         app.include_router(router, prefix="/api/v1")
 
     @app.get("/api/v1/health", tags=["system"])
