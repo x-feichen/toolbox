@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,20 +51,36 @@ async def lifespan(app: FastAPI):
 def _install_csrf_protection(app: FastAPI) -> None:
     """SameSite=Lax cookie + Origin validation combo (design doc §54).
 
-    Browser clients always send Origin on unsafe cross-site requests; we
-    reject any unsafe request whose Origin is present but not allowed.
+    Browser clients always send Origin on unsafe cross-site requests. An
+    unsafe request is allowed when either:
+      • Origin matches the Host it was sent to (same-origin request through
+        the reverse proxy — works on any deployment domain/IP without
+        configuration), or
+      • Origin is explicitly whitelisted in CORS_ORIGINS (split deployments
+        where the frontend lives on another origin).
+
+    A request without an Origin header is not browser-originated CSRF
+    (curl, server-to-server) and passes; the session cookie still applies.
     """
 
     @app.middleware("http")
     async def csrf_origin_check(request: Request, call_next):
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             origin = request.headers.get("origin")
-            if origin and origin not in get_settings().cors_origin_list:
+            if origin and not _origin_allowed(request, origin):
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={"error": {"code": ErrorCode.FORBIDDEN, "message": "CSRF 校验失败"}},
                 )
         return await call_next(request)
+
+
+def _origin_allowed(request: Request, origin: str) -> bool:
+    settings = get_settings()
+    if origin in settings.cors_origin_list:
+        return True
+    host = request.headers.get("host", "")
+    return bool(host) and urlsplit(origin).netloc == host
 
 
 def create_app() -> FastAPI:

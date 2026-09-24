@@ -40,7 +40,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-toolbox}:${POSTGRES_PASSWORD:-toolbox}@postgres:5432/${POSTGRES_DB:-toolbox}
       # Change this in .env! Used for session cookie security decisions.
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
-      # Same-origin through nginx; add your public domain(s) here if any.
+      # Same-origin requests are allowed automatically (Origin is compared
+      # with Host), so list extra origins here only for split deployments.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
     depends_on:
       postgres:
@@ -60,9 +61,10 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        # Public address users' browsers will call; nginx proxies /api/*.
-        # Set to your domain in production, e.g. https://toolbox.example.com
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost}
+        # Empty = same-origin: the browser calls /api/* on the current host and
+        # nginx forwards it, so the deployment works on any domain/IP as-is.
+        # Set only for a split deployment (separate API origin).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     container_name: toolbox-frontend
     depends_on:
       backend:

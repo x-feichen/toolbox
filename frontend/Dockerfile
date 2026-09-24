@@ -15,9 +15,11 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --froze
 COPY packages/api-client packages/api-client
 COPY frontend frontend
 
-# Baked into the client bundle at build time: public address of the API.
-# nginx routes /api/* to the backend, so the default is the compose entrypoint.
-ARG NEXT_PUBLIC_API_URL=http://localhost
+# Baked into the client bundle at build time. Empty (the default) means the
+# app calls /api/* on its own origin; nginx forwards that to the backend, so
+# any deployment host/IP works without a rebuild. Set it only when the API
+# lives on a different origin.
+ARG NEXT_PUBLIC_API_URL=
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm --filter @toolbox/frontend build
 

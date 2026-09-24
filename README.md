@@ -57,12 +57,16 @@ cp .env.example .env    # 生产部署请先修改 SESSION_SECRET
 docker compose up -d --build
 ```
 
-打开 **<http://localhost>**（Nginx 统一入口，浏览器同源，无需配置 CORS）。
+打开 `http://<服务器地址>`（localhost、局域网 IP、公网域名均可）。
 
 | 路径 | 服务 |
 | --- | --- |
 | `/` | Next.js 前端 |
 | `/api/v1/*`、`/api/docs` | FastAPI 后端（容器启动时自动执行数据库迁移） |
+
+**部署到服务器无需任何额外配置**：前端以相对路径调用 API（`/api/v1/*`），Nginx 统一转发到后端——换成任意域名或 IP 都直接可用，CORS 与 CSRF 按同源自动放行。只有前后端**分离部署**（前端在 CDN、API 独立域名）时才需要设置 `NEXT_PUBLIC_API_URL` 并把它加入 `CORS_ORIGINS`。
+
+> 提示：若修改了 `docker-compose.yml` 里前后端服务的挂载/命令等配置（如在开发模式与生产模式之间切换），先 `docker compose down` 再 `up`，避免容器沿用旧配置。
 
 ### 方式 B：本地开发（宿主直接跑代码）
 
@@ -162,7 +166,7 @@ toolbox/
 | --- | --- |
 | `SESSION_SECRET` | 生产必须修改，用于会话安全 |
 | `CORS_ORIGINS` | 允许调用 API 的浏览器来源（含 nginx 入口与本地开发端口） |
-| `NEXT_PUBLIC_API_URL` | 前端构建期注入的 API 地址；公网部署填你的域名 |
+| `NEXT_PUBLIC_API_URL` | 仅在前后端分离部署时设置（默认同源，留空即可） |
 | `APP_ENV` | `development` / `production` |
 
 生产环境的 Secret 通过环境变量或 Secret Manager 注入，禁止提交 Git。

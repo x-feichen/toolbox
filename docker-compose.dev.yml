@@ -44,5 +44,5 @@ services:
     environment:
       NODE_ENV: development
       WATCHPACK_POLLING: "true"
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     command: ["pnpm", "--filter", "@toolbox/frontend", "dev"]
