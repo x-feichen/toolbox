@@ -44,11 +44,14 @@ export class ApiClient {
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    // FormData bodies must NOT carry a Content-Type header — the browser
+    // adds it together with the multipart boundary.
+    const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
     const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
       ...init,
       credentials: "include",
       headers: {
-        ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(init.body !== undefined && !isFormData ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
       },
     });
@@ -89,6 +92,17 @@ export class ApiClient {
   users = {
     updateMe: (input: { display_name?: string | null; avatar_url?: string | null }) =>
       this.request<User>("/api/v1/me", { method: "PATCH", body: JSON.stringify(input) }),
+  };
+
+  // ── Avatars ─────────────────────────────────────────────────────────────
+  avatars = {
+    /** Upload a compressed image (JPG/PNG/WebP) and return the updated user. */
+    upload: (file: Blob, filename = "avatar.webp") => {
+      const form = new FormData();
+      form.append("file", file, filename);
+      return this.request<User>("/api/v1/avatars", { method: "POST", body: form });
+    },
+    remove: () => this.request<void>("/api/v1/avatars", { method: "DELETE" }),
   };
 
   // ── Admin (admin role only) ────────────────────────────────────────────

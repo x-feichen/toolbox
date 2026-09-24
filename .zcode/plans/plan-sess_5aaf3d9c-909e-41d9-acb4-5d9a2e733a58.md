@@ -1,103 +1,73 @@
-# ToolBox 设置中心 + 用户管理设计方案
+# 头像上传功能设计（MinIO 对象存储）
 
-## 一、需求确认（依据你的决策）
+## 一、关键决策（未收到选择，按推荐默认）
 
-| 决策 | 内容 |
-|---|---|
-| 定位 | 不是纯管理后台，而是**所有角色都能进入的设置界面**；用户管理是其中仅管理员可见的部分 |
-| 角色 | 仅 `admin` / `user` 两级；管理员可**重置用户密码** |
-| 个人设置 | 所有角色均可修改**昵称、头像、密码** |
-| 工具配置 | 先留入口（未来用于 AI 工具的 API Key 等配置） |
-| AI 供应商 | 设置中预留接口与入口 |
-| 工具上下线 | **不做**（不做 hidden/enabled，manifest 保持唯一事实来源） |
-| admin 来源 | 环境变量白名单 `ADMIN_EMAILS` |
-| 部署形态 | 主站内路由 |
+| 决策点 | 方案 | 理由 |
+|---|---|---|
+| 公网访问 | **后端代理** `GET /api/v1/avatars/{key}` | MinIO 9000 端口不暴露公网，bucket 私有；公网只需访问主站即可显示 |
+| 可见性 | 任何人可访问（gravatar 式，不鉴权） | 跨站引用/截图分享也能正常显示；头像本身非敏感数据 |
+| 上传处理 | **客户端 Canvas 压缩**（最长边 512px，WebP 优先，JPEG 回退） | 符合项目"浏览器优先"原则；单头像约几十 KB，省存储与带宽 |
+| URL 存储 | `avatar_url` 存**相对路径** `/api/v1/avatars/avatars/{user_id}/{uuid}.webp` | 换域名/IP 无需迁移数据，公网部署天然可用 |
 
-## 二、路由与信息架构
+## 二、后端
 
-```
-/settings                 设置中心（所有登录用户）— 顶部 Tab 切换
-  ├─ 资料    个人资料（昵称、头像）
-  ├─ 安全    修改密码
-  ├─ 工具    工具配置入口（占位：列出工具 + “即将支持配置”）
-  └─ AI      AI 供应商（占位：Provider / API Key 表单骨架）
-/admin/users              用户管理（仅 admin，入口仅 admin 可见）
-```
+### 2.1 存储抽象（新模块 `app/storage/`）
+- `base.py`：`ObjectStorage` Protocol — `ensure_ready()` / `put_object(key, data, content_type)` / `get_object(key) -> bytes` / `delete_object(key)` / `object_exists(key)`（同步接口，由上层在线程池执行，保持 FastAPI 全异步）
+- `minio_storage.py`：官方 `minio` SDK 实现；`ensure_ready` 幂等创建私有 bucket（**容器启动时自动初始化，无需 mc 镜像**；MinIO 未就绪时内置重试 ~30s）
+- `factory.py`：按 `STORAGE_BACKEND` 创建单例（`minio`）；测试用 InMemory fake
 
-侧边栏：登录后底部用户区增加「设置」齿轮入口；**仅 admin** 额外显示「用户管理」入口。
+### 2.2 配置（core/config.py）
+`storage_backend`、`minio_endpoint`、`minio_access_key`、`minio_secret_key`、`minio_bucket`（默认 `avatars`）、`minio_secure`
 
-## 三、后端设计
-
-### 3.1 角色授予（环境变量白名单）
-- `core/config.py`：新增 `admin_emails: str = ""`（逗号分隔，大小写不敏感）
-- `auth/service.register_user()`：邮箱命中白名单 → `role="admin"`，否则 `"user"`
-- 已存在的 admin 用户不受影响（白名单只作用于新注册）
-
-### 3.2 权限依赖
-- `auth/dependencies.py` 新增 `require_admin`：`user is None → 401 AUTH_REQUIRED`；`role != "admin" → 403 FORBIDDEN`（错误码复用现有 `ErrorCode`）
-
-### 3.3 个人设置（所有登录用户）
+### 2.3 头像 API（新模块 `app/avatars/`）
 | API | 说明 |
 |---|---|
-| `PATCH /api/v1/me` | 已存在，扩展头像/昵称校验（复用现结构） |
-| `POST /api/v1/me/password` | `{current_password, new_password}`：校验当前密码 → 更新 → **踢出该用户其他设备的会话**（保留当前会话） |
+| `POST /api/v1/avatars` | multipart 上传（需登录）：校验类型（jpeg/png/webp）与大小（≤2MB）→ key `avatars/{user_id}/{uuid4}.{ext}` → 存 MinIO → **删除旧头像文件**（仅当旧值为本系统路径）→ 更新 `users.avatar_url` 为相对 API 路径 → 返回 UserOut |
+| `GET /api/v1/avatars/{key:path}` | **不鉴权**（公网可显示）：读对象返回字节，`Content-Type` 正确 + `Cache-Control: public, max-age=31536000, immutable`（key 含 uuid，可永久缓存）+ ETag |
+| `DELETE /api/v1/avatars` | 需登录：删除自己的头像文件 + 清空 `avatar_url` → 204 |
 
-### 3.4 用户管理（仅 admin，新模块 `app/admin/`）
-| API | 说明 |
-|---|---|
-| `GET /api/v1/admin/users` | 列表：`q`（邮箱/昵称模糊搜索）、`role`、`status` 过滤、分页（`page`/`page_size`≤100），按注册时间倒序 + 总数 |
-| `GET /api/v1/admin/users/{id}` | 详情 |
-| `PATCH /api/v1/admin/users/{id}` | 改 `role` / `status`（启用·禁用） |
-| `POST /api/v1/admin/users/{id}/password` | 管理员重置密码 `{new_password}`（≥8 位）→ **清空该用户全部会话**（强制重新登录） |
+依赖：`minio`（官方轻量 SDK，uv 从清华源安装）
 
-**安全护栏（必须）**：
-1. 管理员**不能禁用/降级自己**（防锁死）
-2. **最后一个 admin 不能被降级或禁用**
-3. 所有管理员敏感操作写结构化日志（操作人、目标用户、动作、时间）——暂不建 audit_logs 表，与现有 `core/logging.py` 一致
+## 三、Docker
 
-### 3.5 AI 供应商接口预留
-**建议：本期只做前端占位 UI，不建后端 API 与存储**。理由：真正接入时必须解决 API Key 的加密存储与多用户隔离（属于 Prompt/AI 工具阶段的设计），现在建空接口只会产生死代码。设置中「AI」Tab 以明确的“即将支持”状态呈现。
+- `docker-compose.yml` 新增 **minio 服务**：
+  - 镜像用本机已有的 `minio/minio:RELEASE.2024-05-28T17-19-04Z`（Docker Hub 当前不可达，必须用本地已有版本）
+  - 数据卷 `minio_data`；根账号密码走 `.env`（`MINIO_ROOT_USER/PASSWORD`）
+  - **9000（API）不对外暴露**（仅容器网络）；9001（Console）绑定 `127.0.0.1` 供运维本地管理
+  - 不配 healthcheck（minio 镜像无 curl/mc），由后端 `ensure_ready` 重试兜底
+- backend 服务：`depends_on: minio` + 注入 `STORAGE_BACKEND` / `MINIO_*` 环境变量
 
-## 四、前端设计
+## 四、前端
 
-### 4.1 设置中心 `/settings`
-- 复用现有设计系统（`primitives.tsx` 的 Button/Input/Card、Design Tokens、暗色模式）
-- Tab 状态存 URL query（`?tab=profile|security|tools|ai`），可分享/刷新保持
-- 「资料」：昵称、头像 URL，保存后 invalidate `["auth","me"]` 即时更新侧边栏
-- 「安全」：当前密码 + 新密码 + 确认新密码表单，提交后 toast 提示其他设备已退出
-- 「工具」：列出工具清单（来自 `GET /tools`），每项显示“即将支持配置”的禁用按钮
-- 「AI」：Provider 下拉 + API Key 密码框的骨架表单，整体 disabled + “即将支持”说明
+### 4.1 客户端压缩（新 `lib/images/avatar.ts`）
+- `computeTargetSize(w, h, max=512)` — 纯函数，**可单测**（保持比例、不放大）
+- `compressAvatarImage(file, opts)` — 浏览器 `Image` + `canvas.toBlob`（优先 `image/webp` 0.85，不支持则 JPEG）；纯逻辑与 DOM 分离
+- `isSupportedAvatarType(type)`
 
-### 4.2 用户管理 `/admin/users`
-- 表格：邮箱 / 昵称 / 角色 / 状态 / 注册时间 / 操作
-- 搜索框（邮箱、昵称）+ 角色与状态过滤 + 分页
-- 行操作：重置密码（Dialog 表单）、启用/禁用、改角色（user↔admin）——危险操作二次确认
-- 自我行操作用户名“当前账号”标记，禁用自身相关操作
-- 复用 api-client 新增的 `admin` 命名空间方法
+### 4.2 API 客户端
+- `ApiClient.request` 支持 `FormData`（body 是 FormData 时**不设** Content-Type，交由浏览器带 boundary）——现有实现固定设 JSON，需小改
+- `client.avatars.upload(blob)` / `client.avatars.remove()`
 
-### 4.3 类型与客户端
-- `packages/api-client`：`User` 类型已有 `role`；新增 `AdminUserList`（分页响应）、`UserQuery` 等类型 + `client.admin.users.*` 方法
+### 4.3 设置页资料 Tab（改造）
+- 头像区从"URL 输入框"改为**上传控件**：点击/选择文件 → 客户端压缩（带 loading）→ 上传 → invalidate `["auth","me"]` → **侧边栏头像即时更新** → toast
+- 有上传头像时显示「恢复默认头像」（调用 DELETE）
+- 移除头像 URL 文本输入（对普通用户无意义）
+- 图片加载失败回退首字母（保留并增强 onError 处理）
 
-## 五、测试计划（pytest，前置约定沿用现有 fixture 模式）
+## 五、测试
 
-1. `ADMIN_EMAILS` 命中 → 新用户 role=admin；未命中 → user
-2. `require_admin`：匿名 → 401；普通用户 → 403；admin → 200
-3. 修改密码：当前密码错误被拒；成功后其他会话失效、当前会话保留
-4. 管理员重置密码：仅 admin 可用；目标用户全部会话失效
-5. 用户列表：搜索/过滤/分页正确
-6. 护栏：不能改自己；最后一个 admin 不能降级/禁用
-7. 前端 Vitest：密码表单校验（长度≥8、两次一致）
+- **后端**（新增 ~10 例）：未登录 401 / 非法类型拒绝 / 超限拒绝 / 上传成功（avatar_url 正确、key 前缀正确）/ 替换时删除旧文件 / GET 200（content-type + cache header + immutable）/ 不存在 404 / DELETE 清空并删文件 —— 使用 `InMemoryStorage` fake（记录 put/get/delete 调用）
+- **前端**：`computeTargetSize` 单测 + `ApiClient` FormData 不设 Content-Type 单测
+- 现有 58 后端 + 77 前端全部保持通过
 
 ## 六、实施顺序
 
-1. **后端 A**：`ADMIN_EMAILS` 配置 + `require_admin` + 改密码/重置密码 + 用户管理 API + 全部 pytest
-2. **前端 B**：api-client 扩展 + 设置中心四 Tab + 侧边栏入口 + Vitest
-3. **前端 C**：用户管理页（表格/搜索/分页/操作 Dialog）+ 路由与入口
-4. **验证 D**：浏览器全流程（注册普通用户 → 改密码；白名单邮箱注册为 admin → 用户管理全套操作）+ README 更新 + 提交
+1. **A 存储层**：config + `app/storage/`（base/minio/factory）+ compose 加 minio + `.env.example`
+2. **B API**：`app/avatars/` 路由 + fake storage + pytest
+3. **C 前端**：压缩 lib + api-client FormData + ProfileTab 上传 UI + Vitest
+4. **D 联调**：docker 起 minio → 浏览器注册用户 → 上传头像 → 侧边栏/设置页显示 → **用局域网 IP 验证公网可访问** → README + 提交
 
-## 六、明确不做（保持边界）
+## 七、不做的事
 
-- 工具上下线/隐藏、工具状态调整（保持 manifest code-first 单一来源）
-- 审计日志表、统计 Dashboard、工具配置的真实持久化
-- 密码找回邮件、OAuth、2FA
-- AI 供应商真实接入（仅占位）
+- 图片 CDN 直连、缩略图多尺寸、头像审核、图片 EXIF 处理、对象存储迁移工具
+- 存储抽象不实现第二种后端（local/S3 未来按需加，Protocol 已就位）

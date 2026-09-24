@@ -27,6 +27,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme";
+import { Avatar } from "@/components/ui/avatar";
 import { useCommandPalette } from "@/components/command/command-palette";
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -255,9 +256,7 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
       <div className="mt-auto border-t border-border p-3">
         {isLoading ? null : user ? (
           <div className="flex h-9 items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-full bg-accent/15 text-[12px] font-medium text-accent">
-              {(user.display_name ?? user.email).slice(0, 1).toUpperCase()}
-            </span>
+            <Avatar src={user.avatar_url} name={user.display_name ?? user.email} />
             <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
               {user.display_name ?? user.email}
             </span>

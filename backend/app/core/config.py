@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     # admin role (e.g. ADMIN_EMAILS=ops@example.com,cto@example.com).
     admin_emails: str = ""
 
+    # Object storage for user assets (avatars). "minio" runs against an
+    # S3-compatible server; the bucket stays private and the backend proxies
+    # reads, so MinIO itself is never exposed publicly.
+    storage_backend: str = "minio"
+    minio_endpoint: str = "minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "avatars"
+    minio_secure: bool = False
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

@@ -46,4 +46,23 @@ describe("ApiClient", () => {
     const err = await client.tools.list().catch((e) => e);
     expect(err.code).toBe("INTERNAL_ERROR");
   });
+
+  it("sends FormData without a Content-Type header (browser adds the boundary)", async () => {
+    const { client, calls } = clientWith([
+      { status: 201, body: { id: "u1", email: "a@b.c", avatar_url: "/api/v1/avatars/x.webp" } },
+    ]);
+    const form = new FormData();
+    form.append("file", new Blob(["x"], { type: "image/webp" }), "avatar.webp");
+    await client.avatars.upload(new Blob(["x"], { type: "image/webp" }));
+    const headers = calls[0].headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBeUndefined();
+    expect(form.get("file")).toBeTruthy();
+  });
+
+  it("uses JSON content type for plain object bodies", async () => {
+    const { client, calls } = clientWith([{ status: 200, body: { id: "u1" } }]);
+    await client.users.updateMe({ display_name: "x" });
+    const headers = calls[0].headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
 });

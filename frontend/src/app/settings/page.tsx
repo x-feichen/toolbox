@@ -5,12 +5,14 @@ import { useTools } from "@/features/tools/use-tools";
 import { api } from "@/lib/api";
 import { isValidPasswordForm, validatePasswordForm } from "@/lib/settings/password-validation";
 import type { PasswordFormErrors } from "@/lib/settings/password-validation";
+import { compressAvatarImage } from "@/lib/images/avatar";
 import { Button, Card, Input } from "@/components/ui/primitives";
+import { Avatar } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { ApiError } from "@toolbox/api-client";
 import { useEffect } from "react";
 
@@ -93,17 +95,18 @@ function ProfileTab() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? "");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [imageBroken, setImageBroken] = useState(false);
+  const avatarUrl = user?.avatar_url ?? null;
+  const hasUploadedAvatar = Boolean(avatarUrl?.startsWith("/api/v1/avatars/"));
 
   const save = async () => {
     setSaving(true);
     try {
-      await api().users.updateMe({
-        display_name: displayName.trim() || null,
-        avatar_url: avatarUrl.trim() || null,
-      });
+      await api().users.updateMe({ display_name: displayName.trim() || null });
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       showToast("资料已保存");
     } catch (error) {
@@ -113,22 +116,72 @@ function ProfileTab() {
     }
   };
 
+  const onPickAvatar = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    setImageBroken(false);
+    try {
+      const compressed = await compressAvatarImage(file);
+      await api().avatars.upload(compressed, avatarFilename(compressed.type));
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      showToast("头像已更新");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "头像上传失败");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeAvatar = async () => {
+    setUploading(true);
+    try {
+      await api().avatars.remove();
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      showToast("已恢复默认头像");
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : "操作失败");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <Card className="p-6">
       <h2 className="text-[15px] font-medium text-foreground">个人资料</h2>
       <p className="mt-1 text-[13px] text-secondary-text">修改昵称与头像，这些信息会显示在侧边栏。</p>
 
       <div className="mt-5 flex max-w-md flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-accent/15 text-[14px] font-medium text-accent">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="头像" className="size-full object-cover" />
-            ) : (
-              (user?.display_name ?? user?.email ?? "?").slice(0, 1).toUpperCase()
-            )}
-          </span>
-          <span className="text-[13px] text-muted-text">头像预览</span>
+        {/* Avatar upload: compressed in the browser, never stored locally */}
+        <div className="flex items-center gap-4">
+          <Avatar
+            src={imageBroken ? null : avatarUrl}
+            name={user?.display_name ?? user?.email ?? "?"}
+            className="size-14 text-[18px]"
+          />
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Button loading={uploading} onClick={() => fileRef.current?.click()}>
+                {avatarUrl && !imageBroken ? "更换头像" : "上传头像"}
+              </Button>
+              {hasUploadedAvatar && !imageBroken && (
+                <Button variant="ghost" onClick={removeAvatar}>
+                  恢复默认
+                </Button>
+              )}
+            </div>
+            <p className="text-[12px] text-muted-text">
+              支持 JPG / PNG / WebP，上传前在浏览器内压缩到 512px（图片不会以原图上传）
+            </p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => onPickAvatar(event.target.files?.[0])}
+              aria-label="选择头像图片"
+            />
+          </div>
         </div>
 
         <label className="flex flex-col gap-1.5">
@@ -141,16 +194,6 @@ function ProfileTab() {
           />
         </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] text-secondary-text">头像 URL</span>
-          <Input
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://…"
-            maxLength={500}
-          />
-        </label>
-
         <div>
           <Button variant="primary" loading={saving} onClick={save}>
             保存
@@ -159,6 +202,12 @@ function ProfileTab() {
       </div>
     </Card>
   );
+}
+
+function avatarFilename(contentType: string): string {
+  if (contentType === "image/png") return "avatar.png";
+  if (contentType === "image/jpeg") return "avatar.jpg";
+  return "avatar.webp";
 }
 
 function SecurityTab() {
