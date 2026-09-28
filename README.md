@@ -78,6 +78,35 @@ docker compose up -d --build
 
 > 提示：若修改了 `docker-compose.yml` 里前后端服务的挂载/命令等配置（如在开发模式与生产模式之间切换），先 `docker compose down` 再 `up`，避免容器沿用旧配置。
 
+### HTTPS（生产必须）
+
+`http://` 的公网部署有两处受限，均已妥善处理或有明确约束：
+
+| 能力 | HTTP 下的表现 | 说明 |
+| --- | --- | --- |
+| 复制到剪贴板 | 自动降级为 `execCommand` 兼容模式（toast 提示"已复制（兼容模式）"） | 浏览器仅在 HTTPS/localhost 开放 `navigator.clipboard` |
+| **登录会话** | **不可用** | `APP_ENV=production` 时 Cookie 带 `Secure`，HTTP 下浏览器不发送 → 无法保持登录 |
+
+因此：
+
+- **纯 HTTP 临时部署**：`.env` 中设 `APP_ENV=development`（Cookie 不带 `Secure`），登录与复制均可正常工作；其余生产特性不受影响。
+- **正式生产**：给 Nginx 配置证书并启用 HTTPS（443），保持 `APP_ENV=production`。获取证书后追加 server 块并把 80 端口改为仅做跳转：
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name toolbox.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/toolbox.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/toolbox.example.com/privkey.pem;
+
+    # 沿用 deploy/nginx.conf 中的 location 配置
+}
+```
+
+启用 HTTPS 后可进一步加 `Strict-Transport-Security` 响应头；nginx.conf 顶部已配置 Docker 内置 DNS 动态解析，容器重建无需重启 nginx。
+
 ### 方式 B：本地开发（宿主直接跑代码）
 
 ```bash
@@ -119,7 +148,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 # 后端：68 个用例（安全原语 / 认证 / 工具契约 / 提示词权限隔离 / 收藏历史 / CSRF 同源 / 管理员与密码重置 / 头像上传）
 cd backend && uv run pytest
 
-# 前端：83 个用例（16 个文件：12 个客户端工具逻辑 + 密码校验 + 头像压缩）
+# 前端：89 个用例（17 个文件：12 个客户端工具逻辑 + 密码校验 + 头像压缩 + 剪贴板兼容）
 pnpm --filter @toolbox/frontend test
 
 # 共享客户端：6 个用例

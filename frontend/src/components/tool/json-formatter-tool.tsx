@@ -2,6 +2,7 @@
 
 import { useToast } from "@/components/ui/toast";
 import { formatJson, minifyJson, validateJson } from "@/lib/tools/json-formatter";
+import { copyToClipboard } from "@/lib/clipboard";
 import type { Tool } from "@toolbox/api-client";
 import { useState } from "react";
 import { Button } from "@/components/ui/primitives";
@@ -41,8 +42,12 @@ export function JsonFormatterTool({ tool }: { tool: Tool }) {
 
   const copyOutput = async () => {
     if (!output) return;
-    await navigator.clipboard.writeText(output);
-    showToast("已复制到剪贴板");
+    try {
+      const strategy = await copyToClipboard(output);
+      showToast(strategy === "clipboard-api" ? "已复制到剪贴板" : "已复制（兼容模式）");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "复制失败");
+    }
   };
 
   return (

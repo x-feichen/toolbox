@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+import { copyToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 /**
@@ -58,8 +59,14 @@ export function CopyButton({ value, label = "复制" }: { value: string; label?:
     <Button
       onClick={async () => {
         if (!value) return;
-        await navigator.clipboard.writeText(value);
-        showToast("已复制到剪贴板");
+        try {
+          const strategy = await copyToClipboard(value);
+          showToast(
+            strategy === "clipboard-api" ? "已复制到剪贴板" : "已复制（兼容模式）",
+          );
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : "复制失败");
+        }
       }}
     >
       {label}
