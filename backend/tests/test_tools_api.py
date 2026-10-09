@@ -24,7 +24,7 @@ async def test_list_tools_returns_registered_manifests(client):
         tool = next(t for t in tools if t["slug"] == slug)
         assert tool["execution"] == "client"
         assert tool["access"] == "public"
-    assert "daily-news" not in slugs  # 每日资讯是首页内容区块，不是工具
+    assert "daily-news" not in slugs  # 每日资讯是侧边栏独立页面，不是工具
 
     formatter = next(t for t in tools if t["slug"] == "json-formatter")
     assert formatter["access"] == "public"
