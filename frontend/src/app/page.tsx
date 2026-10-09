@@ -5,7 +5,6 @@ import { ToolCard } from "@/components/tool/tool-card";
 import { useFavorites, useRecentSlugs, useToggleFavorite, useTools } from "@/features/tools/use-tools";
 import { useCommandPalette } from "@/components/command/command-palette";
 import { favoriteSlugs } from "@/features/tools/use-tools";
-import { DailyNewsSection } from "@/components/tool/daily-news/daily-news-section";
 import { categoryLabel } from "@/lib/utils";
 import type { Tool } from "@toolbox/api-client";
 import { useEffect, useState } from "react";
@@ -83,9 +82,6 @@ export default function HomePage() {
           </section>
         );
       })}
-
-      {/* 每日资讯：只读内容区块（Horizon 流水线生成） */}
-      <DailyNewsSection />
     </div>
   );
 }
