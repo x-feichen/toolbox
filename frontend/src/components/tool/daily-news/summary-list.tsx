@@ -5,6 +5,7 @@ import { Loader2, Newspaper } from "lucide-react";
 import { Button, Spinner } from "@/components/ui/primitives";
 import type { DailySummary } from "@/features/daily-news/types";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/components/tool/daily-news/summary-list-helpers";
 
 interface SummaryListProps {
   summaries: DailySummary[];
@@ -15,19 +16,6 @@ interface SummaryListProps {
   hasMore: boolean;
   error: string | null;
   onLoadMore: () => void;
-}
-
-function formatDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
 }
 
 export function SummaryList({

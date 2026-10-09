@@ -14,7 +14,13 @@ export function pickCopyStrategy(): CopyStrategy {
   if (typeof window === "undefined") return "exec-command";
   const isSecure = window.isSecureContext ?? false;
   const hasApi = typeof navigator !== "undefined" && Boolean(navigator.clipboard?.writeText);
-  return isSecure && hasApi ? "clipboard-api" : "exec-command";
+  if (!isSecure || !hasApi) return "exec-command";
+  // The Clipboard API requires document focus; a denied writeText consumes
+  // the user activation, which would make the execCommand fallback fail too —
+  // so the strategy must be decided BEFORE touching the API.
+  return typeof document !== "undefined" && document.hasFocus()
+    ? "clipboard-api"
+    : "exec-command";
 }
 
 export class ClipboardError extends Error {}

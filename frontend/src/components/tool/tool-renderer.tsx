@@ -18,7 +18,6 @@ import { JwtDecoderTool } from "@/components/tool/jwt-decoder-tool";
 import { TextDiffTool } from "@/components/tool/text-diff-tool";
 import { CsvJsonTool } from "@/components/tool/csv-json-tool";
 import { ImageCompressorTool } from "@/components/tool/image-compressor-tool";
-import { DailyNewsTool } from "@/components/tool/daily-news/daily-news-tool";
 
 /**
  * Client-tool component registry, keyed by tool slug. Adding a new client
@@ -38,7 +37,6 @@ const TOOL_COMPONENTS: Record<string, ComponentType<{ tool: Tool }>> = {
   "text-diff": TextDiffTool,
   "csv-json": CsvJsonTool,
   "image-compressor": ImageCompressorTool,
-  "daily-news": DailyNewsTool,
   // authenticated + custom workspace
   "prompt-manager": PromptManagerTool,
 };

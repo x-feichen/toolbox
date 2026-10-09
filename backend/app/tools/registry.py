@@ -88,7 +88,6 @@ def load_tools() -> None:
         base64_tool,
         case_converter,
         csv_json,
-        daily_news,
         duplicate_lines,
         image_compressor,
         json_formatter,

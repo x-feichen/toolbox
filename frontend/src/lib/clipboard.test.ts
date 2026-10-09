@@ -3,7 +3,15 @@ import { ClipboardError, copyToClipboard, pickCopyStrategy } from "./clipboard";
 
 const originalWindow = globalThis.window;
 
-function setEnv({ secure, hasClipboard }: { secure: boolean; hasClipboard: boolean }) {
+function setEnv({
+  secure,
+  hasClipboard,
+  focused = true,
+}: {
+  secure: boolean;
+  hasClipboard: boolean;
+  focused?: boolean;
+}) {
   Object.defineProperty(globalThis, "window", {
     value: { isSecureContext: secure },
     configurable: true,
@@ -14,6 +22,7 @@ function setEnv({ secure, hasClipboard }: { secure: boolean; hasClipboard: boole
     configurable: true,
     writable: true,
   });
+  vi.stubGlobal("document", { hasFocus: () => focused });
 }
 
 afterEach(() => {
@@ -22,7 +31,7 @@ afterEach(() => {
 });
 
 describe("pickCopyStrategy", () => {
-  it("uses the Clipboard API in a secure context", () => {
+  it("uses the Clipboard API in a secure focused context", () => {
     setEnv({ secure: true, hasClipboard: true });
     expect(pickCopyStrategy()).toBe("clipboard-api");
   });
@@ -34,6 +43,11 @@ describe("pickCopyStrategy", () => {
 
   it("falls back when the API is missing even if secure", () => {
     setEnv({ secure: true, hasClipboard: false });
+    expect(pickCopyStrategy()).toBe("exec-command");
+  });
+
+  it("prefers execCommand when the document lost focus (activation must be preserved)", () => {
+    setEnv({ secure: true, hasClipboard: true, focused: false });
     expect(pickCopyStrategy()).toBe("exec-command");
   });
 });
@@ -50,6 +64,7 @@ describe("copyToClipboard", () => {
     (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("denied"));
     const execCommand = vi.fn().mockReturnValue(true);
     vi.stubGlobal("document", {
+      hasFocus: () => true,
       createElement: () => ({
         value: "",
         style: {},
