@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import service as auth_service
-from app.auth.dependencies import get_current_user, require_current_user
+from app.auth.dependencies import get_current_user, get_session_token, require_current_user
 from app.auth.models import User
-from app.auth.schemas import LoginIn, RegisterIn, UserOut
+from app.auth.schemas import ChangePasswordIn, LoginIn, RegisterIn, UserOut
 from app.core.config import get_settings
 from app.core.database import get_db
 
@@ -77,3 +77,20 @@ async def logout(
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(require_current_user)) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    data: ChangePasswordIn,
+    token: str | None = Depends(get_session_token),
+    user: User = Depends(require_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Change own password; other devices are signed out (current one stays)."""
+    await auth_service.change_own_password(
+        db,
+        user,
+        current_password=data.current_password,
+        new_password=data.new_password,
+        current_token=token,
+    )

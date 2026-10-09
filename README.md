@@ -38,6 +38,15 @@
 | 图片压缩 | Canvas 本地压缩 JPG/PNG/WebP，可调质量与输出格式，不传服务器 |
 | 提示词工具 🔒 | 提示词管理：搜索、`{{变量}}` 填充、完整提示词复制、置顶（需登录） |
 
+**每日资讯**（侧边栏独立页面 `/daily-news`，不属于工具体系）：数据由外部 Horizon 流水线生成并写入其 PostgreSQL（只读），页面为左日期列表 + 右详情双栏浏览（Markdown 预览 / 目录锚点跳转 / 逐条勾选复制）；未配置 `DAILY_NEWS_DATABASE_URL` 时列表显示禁用提示。
+
+## 设置与用户管理
+
+- **设置中心**（`/settings`，所有登录用户）：资料（昵称/头像上传，浏览器内压缩后存入对象存储）、安全（改密码，修改后其他设备退出）、工具配置（预留入口）、AI 供应商（预留入口）
+- **用户管理**（`/admin/users`，仅管理员）：用户列表、搜索/过滤/分页、改角色、启用/禁用、重置密码（目标用户全部会话失效）
+- 管理员由环境变量白名单授予：`.env` 中配置 `ADMIN_EMAILS=ops@example.com`（逗号分隔），**注册时命中白名单的邮箱自动获得 admin 角色**；已注册用户角色不受影响
+- 护栏：管理员不能禁用/降级自己；系统会保护最后一个可用管理员
+
 ## 技术栈
 
 | 层 | 技术 |
@@ -46,6 +55,7 @@
 | 后端 | Python 3.13 + FastAPI + Pydantic + SQLAlchemy 2 (async) + Alembic |
 | 数据库 | PostgreSQL 16 |
 | 认证 | HttpOnly Cookie + 服务端 Session（Argon2id 密码哈希、CSRF Origin 校验） |
+| 对象存储 | MinIO（S3 兼容，私有桶 + 后端代理读取，公网无需暴露存储端口） |
 | 工程 | pnpm Monorepo / uv / Docker Compose / Vitest / pytest |
 
 ## 快速开始
@@ -62,11 +72,42 @@ docker compose up -d --build
 | 路径 | 服务 |
 | --- | --- |
 | `/` | Next.js 前端 |
-| `/api/v1/*`、`/api/docs` | FastAPI 后端（容器启动时自动执行数据库迁移） |
+| `/api/v1/*`、`/api/docs` | FastAPI 后端（容器启动时自动执行数据库迁移与 MinIO 桶初始化） |
+
+**头像存储**：用户头像上传到 MinIO（容器内 `avatars` 私有桶，9000 端口不对外暴露）；浏览器通过 `GET /api/v1/avatars/{key}` 读取——该接口无需登录且带 `immutable` 长缓存，因此**部署到任意公网域名/IP 都能正常显示头像**。MinIO 管理控制台仅绑定 `127.0.0.1:9001`（凭据见 `.env` 的 `MINIO_ROOT_USER/PASSWORD`，生产请修改）。
 
 **部署到服务器无需任何额外配置**：前端以相对路径调用 API（`/api/v1/*`），Nginx 统一转发到后端——换成任意域名或 IP 都直接可用，CORS 与 CSRF 按同源自动放行。只有前后端**分离部署**（前端在 CDN、API 独立域名）时才需要设置 `NEXT_PUBLIC_API_URL` 并把它加入 `CORS_ORIGINS`。
 
 > 提示：若修改了 `docker-compose.yml` 里前后端服务的挂载/命令等配置（如在开发模式与生产模式之间切换），先 `docker compose down` 再 `up`，避免容器沿用旧配置。
+
+### HTTPS（生产必须）
+
+`http://` 的公网部署有两处受限，均已妥善处理或有明确约束：
+
+| 能力 | HTTP 下的表现 | 说明 |
+| --- | --- | --- |
+| 复制到剪贴板 | 自动降级为 `execCommand` 兼容模式（toast 提示"已复制（兼容模式）"） | 浏览器仅在 HTTPS/localhost 开放 `navigator.clipboard` |
+| **登录会话** | **不可用** | `APP_ENV=production` 时 Cookie 带 `Secure`，HTTP 下浏览器不发送 → 无法保持登录 |
+
+因此：
+
+- **纯 HTTP 临时部署**：`.env` 中设 `APP_ENV=development`（Cookie 不带 `Secure`），登录与复制均可正常工作；其余生产特性不受影响。
+- **正式生产**：给 Nginx 配置证书并启用 HTTPS（443），保持 `APP_ENV=production`。获取证书后追加 server 块并把 80 端口改为仅做跳转：
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name toolbox.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/toolbox.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/toolbox.example.com/privkey.pem;
+
+    # 沿用 deploy/nginx.conf 中的 location 配置
+}
+```
+
+启用 HTTPS 后可进一步加 `Strict-Transport-Security` 响应头；nginx.conf 顶部已配置 Docker 内置 DNS 动态解析，容器重建无需重启 nginx。
 
 ### 方式 B：本地开发（宿主直接跑代码）
 
@@ -106,13 +147,13 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ## 测试
 
 ```bash
-# 后端：43 个用例（安全原语 / 认证 / 工具契约 / 提示词权限隔离 / 收藏历史）
+# 后端：68 个用例（安全原语 / 认证 / 工具契约 / 提示词权限隔离 / 收藏历史 / CSRF 同源 / 管理员与密码重置 / 头像上传）
 cd backend && uv run pytest
 
-# 前端：72 个用例（13 个文件，覆盖全部 12 个客户端工具的核心逻辑）
+# 前端：89 个用例（17 个文件：12 个客户端工具逻辑 + 密码校验 + 头像压缩 + 剪贴板兼容）
 pnpm --filter @toolbox/frontend test
 
-# 共享客户端：4 个用例
+# 共享客户端：6 个用例
 pnpm --filter @toolbox/api-client test
 
 # 类型检查 + 生产构建
@@ -165,8 +206,11 @@ toolbox/
 | 变量 | 说明 |
 | --- | --- |
 | `SESSION_SECRET` | 生产必须修改，用于会话安全 |
+| `ADMIN_EMAILS` | 逗号分隔的管理员邮箱白名单（注册时命中即授予 admin 角色） |
 | `CORS_ORIGINS` | 允许调用 API 的浏览器来源（含 nginx 入口与本地开发端口） |
 | `NEXT_PUBLIC_API_URL` | 仅在前后端分离部署时设置（默认同源，留空即可） |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | MinIO 凭据，生产请修改（默认 minioadmin） |
+| `DAILY_NEWS_DATABASE_URL` | 每日资讯的只读数据源（外部 Horizon PostgreSQL）；留空则该功能禁用（其余不受影响） |
 | `APP_ENV` | `development` / `production` |
 
 生产环境的 Secret 通过环境变量或 Secret Manager 注入，禁止提交 Git。

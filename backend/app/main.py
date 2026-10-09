@@ -12,15 +12,20 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app import models  # noqa: F401  (registers all ORM models on Base.metadata)
+from app.admin.router import router as admin_router
 from app.auth import service as auth_service
 from app.auth.router import router as auth_router
+from app.avatars.router import router as avatars_router
 from app.core.config import get_settings
 from app.core.database import Base, engine, async_session_factory
 from app.core.errors import ErrorCode, install_error_handlers
 from app.core.logging import setup_logging
+from app.daily_news.router import router as daily_news_router
 from app.favorites.router import router as favorites_router
 from app.history.router import router as history_router
 from app.prompts.router import router as prompts_router
+from app.storage.base import StorageError
+from app.storage.factory import get_storage, run_storage
 from app.tools.router import router as tools_router
 from app.tools.registry import load_tools, registry
 from app.users.router import router as users_router
@@ -42,6 +47,13 @@ async def lifespan(app: FastAPI):
         # Development convenience only; production uses Alembic migrations.
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    # Prepare object storage (creates the private bucket on first boot).
+    # Never fatal: the rest of the API must stay available if storage is down.
+    try:
+        await run_storage(get_storage().ensure_ready)
+    except (StorageError, ValueError) as exc:
+        logger.error("object storage unavailable at startup: %s", exc)
 
     logger.info("ToolBox API started (env=%s, tools=%d)", settings.app_env, len(registry))
     yield
@@ -103,7 +115,17 @@ def create_app() -> FastAPI:
     _install_csrf_protection(app)
     install_error_handlers(app)
 
-    for router in (auth_router, users_router, tools_router, prompts_router, favorites_router, history_router):
+    for router in (
+        auth_router,
+        users_router,
+        admin_router,
+        tools_router,
+        prompts_router,
+        favorites_router,
+        history_router,
+        avatars_router,
+        daily_news_router,
+    ):
         app.include_router(router, prefix="/api/v1")
 
     @app.get("/api/v1/health", tags=["system"])

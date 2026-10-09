@@ -23,6 +23,25 @@ class Settings(BaseSettings):
     session_lifetime_days: int = 14
     session_cookie_name: str = "toolbox_session"
 
+    # Comma-separated allowlist: registrations with these emails get the
+    # admin role (e.g. ADMIN_EMAILS=ops@example.com,cto@example.com).
+    admin_emails: str = ""
+
+    # Object storage for user assets (avatars). "minio" runs against an
+    # S3-compatible server; the bucket stays private and the backend proxies
+    # reads, so MinIO itself is never exposed publicly.
+    storage_backend: str = "minio"
+    minio_endpoint: str = "minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "avatars"
+    minio_secure: bool = False
+
+    # 每日资讯：只读连接外部 Horizon PostgreSQL；为空则模块禁用（503）。
+    daily_news_database_url: str = ""
+    daily_news_language: str = "zh"
+    daily_news_max_items: int = 50
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -30,6 +49,13 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def admin_email_list(self) -> list[str]:
+        return [email.strip().lower() for email in self.admin_emails.split(",") if email.strip()]
+
+    def is_admin_email(self, email: str) -> bool:
+        return email.lower() in self.admin_email_list
 
     @property
     def cookie_secure(self) -> bool:

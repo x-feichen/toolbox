@@ -18,13 +18,17 @@ import {
   Home,
   Image as ImageIcon,
   Lock,
+  Newspaper,
   Search,
+  Settings,
   Shapes,
   Sparkles,
   Type,
+  Users,
   Wrench,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme";
+import { Avatar } from "@/components/ui/avatar";
 import { useCommandPalette } from "@/components/command/command-palette";
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -221,6 +225,12 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
 
       <nav className="flex flex-col gap-0.5 overflow-y-auto px-3" aria-label="主导航">
         <NavLink href="/" icon={<Home className="size-4" />} label="首页" active={isActive("/")} />
+        <NavLink
+          href="/daily-news"
+          icon={<Newspaper className="size-4" />}
+          label="每日资讯"
+          active={pathname.startsWith("/daily-news")}
+        />
         <Suspense fallback={null}>
           <ToolsTree tools={tools} onNavigate={onNavigate} />
         </Suspense>
@@ -230,14 +240,30 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
           label="收藏"
           active={isActive("/favorites")}
         />
+        {user && (
+          <>
+            <NavLink
+              href="/settings"
+              icon={<Settings className="size-4" />}
+              label="设置"
+              active={pathname.startsWith("/settings")}
+            />
+            {user.role === "admin" && (
+              <NavLink
+                href="/admin/users"
+                icon={<Users className="size-4" />}
+                label="用户管理"
+                active={pathname.startsWith("/admin")}
+              />
+            )}
+          </>
+        )}
       </nav>
 
       <div className="mt-auto border-t border-border p-3">
         {isLoading ? null : user ? (
           <div className="flex h-9 items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-full bg-accent/15 text-[12px] font-medium text-accent">
-              {(user.display_name ?? user.email).slice(0, 1).toUpperCase()}
-            </span>
+            <Avatar src={user.avatar_url} name={user.display_name ?? user.email} />
             <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
               {user.display_name ?? user.email}
             </span>

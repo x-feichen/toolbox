@@ -2,6 +2,7 @@
 
 import { api } from "@/lib/api";
 import { fillPromptVariables, parsePromptVariables } from "@/lib/tools/prompt-variables";
+import { copyToClipboard } from "@/lib/clipboard";
 import type { Prompt } from "@toolbox/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -270,8 +271,18 @@ export function PromptManagerTool() {
         <Button
           onClick={async () => {
             if (!selected) return;
-            await navigator.clipboard.writeText(fillPromptVariables(selected.content, fillValues));
-            showToast("已复制完整提示词");
+            try {
+              const strategy = await copyToClipboard(
+                fillPromptVariables(selected.content, fillValues),
+              );
+              showToast(
+                strategy === "clipboard-api"
+                  ? "已复制完整提示词"
+                  : "已复制完整提示词（兼容模式）",
+              );
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : "复制失败");
+            }
           }}
         >
           <ClipboardCopy className="size-4" aria-hidden />

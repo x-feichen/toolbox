@@ -46,10 +46,14 @@ async def register_user(
     if await get_user_by_email(db, email) is not None:
         raise EmailAlreadyExistsError()
 
+    # Admin role is granted via the ADMIN_EMAILS allowlist (design doc §4.1).
+    role = "admin" if get_settings().is_admin_email(email) else "user"
+
     user = User(
         email=email,
         password_hash=hash_password(password),
         display_name=display_name,
+        role=role,
     )
     db.add(user)
     await db.commit()
@@ -115,6 +119,46 @@ async def destroy_user_session(db: AsyncSession, token: str) -> None:
         AuthSession.__table__.delete().where(
             AuthSession.token_hash == hash_session_token(token)
         )
+    )
+    await db.commit()
+
+
+class WrongPasswordError(AppError):
+    def __init__(self) -> None:
+        super().__init__(ErrorCode.VALIDATION_ERROR, "当前密码不正确", status_code=400)
+
+
+async def change_own_password(
+    db: AsyncSession,
+    user: User,
+    *,
+    current_password: str,
+    new_password: str,
+    current_token: str | None,
+) -> None:
+    """Change the caller's password and sign out every OTHER device."""
+    if not verify_password(current_password, user.password_hash):
+        raise WrongPasswordError()
+
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+
+    stmt = AuthSession.__table__.delete().where(AuthSession.user_id == user.id)
+    if current_token:
+        stmt = stmt.where(AuthSession.token_hash != hash_session_token(current_token))
+    await db.execute(stmt)
+    await db.commit()
+
+
+async def admin_reset_password(
+    db: AsyncSession, target: User, *, new_password: str
+) -> None:
+    """Admin password reset: all of the target user's sessions are dropped,
+    forcing a fresh login everywhere."""
+    target.password_hash = hash_password(new_password)
+    await db.commit()
+    await db.execute(
+        AuthSession.__table__.delete().where(AuthSession.user_id == target.id)
     )
     await db.commit()
 

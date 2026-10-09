@@ -30,6 +30,23 @@ services:
       retries: 10
     restart: unless-stopped
 
+  minio:
+    # Pinned to a locally available release (Docker Hub is unreachable in the
+    # current network); bump freely when a registry mirror is configured.
+    image: minio/minio:RELEASE.2024-05-28T17-19-04Z
+    container_name: toolbox-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      # Console for local administration only; the S3 API (9000) stays on the
+      # container network — the backend proxies avatar reads.
+      - "127.0.0.1:9001:9001"
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -40,12 +57,24 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-toolbox}:${POSTGRES_PASSWORD:-toolbox}@postgres:5432/${POSTGRES_DB:-toolbox}
       # Change this in .env! Used for session cookie security decisions.
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      # Comma-separated emails that receive the admin role on registration.
+      # e.g. ADMIN_EMAILS=ops@example.com,cto@example.com
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-avatars}
+      # 每日资讯只读外部 Horizon 库；留空则模块禁用（503）。
+      DAILY_NEWS_DATABASE_URL: ${DAILY_NEWS_DATABASE_URL:-}
       # Same-origin requests are allowed automatically (Origin is compared
       # with Host), so list extra origins here only for split deployments.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_started
     expose:
       - "8000"
     healthcheck:
@@ -87,3 +116,4 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:
