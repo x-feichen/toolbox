@@ -65,6 +65,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-avatars}
+      # 每日资讯只读外部 Horizon 库；留空则模块禁用（503）。
+      DAILY_NEWS_DATABASE_URL: ${DAILY_NEWS_DATABASE_URL:-}
       # Same-origin requests are allowed automatically (Origin is compared
       # with Host), so list extra origins here only for split deployments.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}

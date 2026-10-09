@@ -36,6 +36,7 @@
 | --- | --- |
 | CSV ↔ JSON | RFC-4180 解析（引号、逗号、换行、转义、UTF-8），双向转换 |
 | 图片压缩 | Canvas 本地压缩 JPG/PNG/WebP，可调质量与输出格式，不传服务器 |
+| 每日资讯 | 浏览 Horizon 流水线生成的新闻摘要（Markdown 预览/锚点跳转/切条复制） |
 | 提示词工具 🔒 | 提示词管理：搜索、`{{变量}}` 填充、完整提示词复制、置顶（需登录） |
 
 ## 设置与用户管理
@@ -208,6 +209,7 @@ toolbox/
 | `CORS_ORIGINS` | 允许调用 API 的浏览器来源（含 nginx 入口与本地开发端口） |
 | `NEXT_PUBLIC_API_URL` | 仅在前后端分离部署时设置（默认同源，留空即可） |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | MinIO 凭据，生产请修改（默认 minioadmin） |
+| `DAILY_NEWS_DATABASE_URL` | 每日资讯的只读数据源（外部 Horizon PostgreSQL）；留空则该功能禁用（其余不受影响） |
 | `APP_ENV` | `development` / `production` |
 
 生产环境的 Secret 通过环境变量或 Secret Manager 注入，禁止提交 Git。

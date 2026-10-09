@@ -70,6 +70,22 @@ export interface Favorite {
   created_at: string;
 }
 
+/** 每日资讯（Horizon 只读库）。日期为 ISO 串（YYYY-MM-DD）。 */
+export interface DailySummary {
+  id: number;
+  date: string;
+  language: string;
+  total_fetched: number;
+  item_count: number;
+  markdown: string;
+  created_at: string;
+}
+
+export interface DailySummariesResponse {
+  summaries: DailySummary[];
+  has_more: boolean;
+}
+
 /** User row returned by the admin endpoints (no password material ever). */
 export interface AdminUser {
   id: string;

@@ -2,6 +2,8 @@ import type {
   AdminUser,
   AdminUserQuery,
   ApiErrorBody,
+  DailySummariesResponse,
+  DailySummary,
   Favorite,
   HistoryEntry,
   Paginated,
@@ -103,6 +105,21 @@ export class ApiClient {
       return this.request<User>("/api/v1/avatars", { method: "POST", body: form });
     },
     remove: () => this.request<void>("/api/v1/avatars", { method: "DELETE" }),
+  };
+
+  // ── Daily News（只读 Horizon 库；未配置数据源时后端返回 503）───────────
+  dailyNews = {
+    list: (opts: { language?: string; limit?: number; offset?: number } = {}) => {
+      const params = new URLSearchParams();
+      if (opts.language) params.set("language", opts.language);
+      if (opts.limit != null) params.set("limit", String(opts.limit));
+      if (opts.offset != null) params.set("offset", String(opts.offset));
+      const qs = params.toString();
+      return this.request<DailySummariesResponse>(
+        `/api/v1/daily-news/summaries${qs ? `?${qs}` : ""}`,
+      );
+    },
+    get: (id: number) => this.request<DailySummary>(`/api/v1/daily-news/summary/${id}`),
   };
 
   // ── Admin (admin role only) ────────────────────────────────────────────

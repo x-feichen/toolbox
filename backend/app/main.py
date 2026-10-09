@@ -20,6 +20,7 @@ from app.core.config import get_settings
 from app.core.database import Base, engine, async_session_factory
 from app.core.errors import ErrorCode, install_error_handlers
 from app.core.logging import setup_logging
+from app.daily_news.router import router as daily_news_router
 from app.favorites.router import router as favorites_router
 from app.history.router import router as history_router
 from app.prompts.router import router as prompts_router
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
         favorites_router,
         history_router,
         avatars_router,
+        daily_news_router,
     ):
         app.include_router(router, prefix="/api/v1")
 

@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     minio_bucket: str = "avatars"
     minio_secure: bool = False
 
+    # 每日资讯：只读连接外部 Horizon PostgreSQL；为空则模块禁用（503）。
+    daily_news_database_url: str = ""
+    daily_news_language: str = "zh"
+    daily_news_max_items: int = 50
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
