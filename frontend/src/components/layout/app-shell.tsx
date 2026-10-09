@@ -18,6 +18,7 @@ import {
   Home,
   Image as ImageIcon,
   Lock,
+  Newspaper,
   Search,
   Settings,
   Shapes,
@@ -224,6 +225,12 @@ function SidebarContent({ tools, onNavigate }: { tools: Tool[]; onNavigate?: () 
 
       <nav className="flex flex-col gap-0.5 overflow-y-auto px-3" aria-label="主导航">
         <NavLink href="/" icon={<Home className="size-4" />} label="首页" active={isActive("/")} />
+        <NavLink
+          href="/daily-news"
+          icon={<Newspaper className="size-4" />}
+          label="每日资讯"
+          active={pathname.startsWith("/daily-news")}
+        />
         <Suspense fallback={null}>
           <ToolsTree tools={tools} onNavigate={onNavigate} />
         </Suspense>

@@ -1,4 +1,4 @@
-/** 每日资讯日期展示格式（供列表与首页卡片共用）。 */
+/** 每日资讯日期展示格式（供列表与详情共用）。 */
 
 export function formatDate(dateStr: string): string {
   try {
